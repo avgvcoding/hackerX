@@ -1,14 +1,14 @@
-import { Send, Sparkles, FileSearch, MessageCircle } from "lucide-react";
-import { useEffect, useRef } from "react";
-import type { SellerRecord, GenerationResponse } from "../types";
-import { MarkdownLite, Spinner, TypingIndicator, val } from "./shared";
+import { Send, Sparkles, FileSearch, MessageCircle, FileText, Database } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { SellerRecord, GenerationResponse, SourceChunk } from "../types";
+import { MarkdownLite, Spinner, TypingIndicator, renderInline, val } from "./shared";
 
 type ChatTurn = {
   role: "user" | "assistant";
   content: string;
   mode?: GenerationResponse["mode"];
   model?: string;
-  sources?: Array<{ title: string; kind: string }>;
+  sources?: SourceChunk[];
 };
 
 const QUICK_QUESTIONS = [
@@ -43,10 +43,14 @@ export function ChatPanel({
   setSalesContext: (v: string) => void;
   standalone?: boolean;
 }) {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
 
+  // Scroll ONLY the messages container — not ancestors. scrollIntoView would
+  // bubble up and shift the page/sidebar, clipping their tops.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = messagesRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [chatTurns, loading]);
 
   const companyName = seller
@@ -84,6 +88,7 @@ export function ChatPanel({
 
       {/* Messages Area */}
       <div
+        ref={messagesRef}
         className="chat-messages scrollbar-thin"
         style={
           standalone
@@ -131,7 +136,6 @@ export function ChatPanel({
         {loading === "chat" && <TypingIndicator />}
         {loading === "brief" && <InlineLoaderBubble label="Generating pre-call brief…" />}
         {loading === "pitch" && <InlineLoaderBubble label="Crafting your sales pitch…" />}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Call Context (collapsible) */}
@@ -209,27 +213,314 @@ function ChatBubble({ turn }: { turn: ChatTurn }) {
   if (isUser) {
     return (
       <div className="chat-bubble-user">
-        <div className="whitespace-pre-wrap text-sm leading-relaxed">{turn.content}</div>
+        <div className="whitespace-pre-wrap text-[15px] leading-relaxed">
+          {turn.content}
+        </div>
       </div>
     );
   }
 
-  // For assistant messages, determine if sources were used
-  const usedRAG = turn.mode === "gateway" || turn.mode === "local_fallback";
+  const { body, sourcesMarkdown } = splitOnSourcesHeading(turn.content);
+  const hasEvidence = (turn.sources?.length ?? 0) > 0;
 
   return (
     <div className="chat-bubble-bot">
-      <MarkdownLite text={turn.content} />
-      {usedRAG && (
-        <div className="mt-3 flex items-center gap-1.5">
-          <span className="source-tag">
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-            </svg>
-            Sources referenced
-          </span>
+      <div className="text-[15px] leading-relaxed">
+        <MarkdownLite text={body} />
+      </div>
+
+      {hasEvidence && <EvidenceBlock sources={turn.sources!} />}
+
+      {sourcesMarkdown && <CompactSources markdown={sourcesMarkdown} />}
+    </div>
+  );
+}
+
+/**
+ * Splits assistant markdown into its body and the trailing "Sources" section
+ * (if any). Matches the LAST occurrence of a heading whose title contains
+ * "sources" (case-insensitive).
+ */
+function splitOnSourcesHeading(content: string): {
+  body: string;
+  sourcesMarkdown: string | null;
+} {
+  const lines = content.split("\n");
+  let splitIdx = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (/^\s*#+\s+sources\b/i.test(lines[i])) {
+      splitIdx = i;
+      break;
+    }
+  }
+  if (splitIdx === -1) return { body: content, sourcesMarkdown: null };
+  return {
+    body: lines.slice(0, splitIdx).join("\n").trimEnd(),
+    sourcesMarkdown: lines.slice(splitIdx + 1).join("\n"),
+  };
+}
+
+/** Compact, one-line-per-item Sources list rendered under the body. */
+function CompactSources({ markdown }: { markdown: string }) {
+  const items: string[] = [];
+  for (const raw of markdown.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    const m = /^[-*+]\s+(.+)$/.exec(line);
+    if (m) items.push(m[1].trim());
+  }
+  if (items.length === 0) return null;
+  return (
+    <div className="mt-3 pt-2.5 border-t border-slate-200/70">
+      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        <FileText size={11} />
+        Sources
+      </div>
+      <ul className="space-y-0.5">
+        {items.map((item, i) => (
+          <li
+            key={i}
+            className="truncate text-[11px] leading-snug text-slate-500"
+            title={stripInlineMarkdown(item)}
+          >
+            <span className="mr-1 text-slate-400">·</span>
+            {renderInline(item, `src-${i}`)}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function stripInlineMarkdown(text: string): string {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+}
+
+/** Evidence section: small, expandable cards drawn from API source chunks. */
+function EvidenceBlock({ sources }: { sources: SourceChunk[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const top = expanded ? sources : sources.slice(0, 3);
+  const remaining = sources.length - top.length;
+
+  return (
+    <div className="mt-3 pt-2.5 border-t border-slate-200/70">
+      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        <Database size={11} />
+        Evidence
+      </div>
+      <div className="space-y-1">
+        {top.map((src) => (
+          <EvidenceChip key={src.id} source={src} />
+        ))}
+      </div>
+      {sources.length > 3 && (
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1.5 text-[11px] font-bold text-blue-600 hover:text-blue-700"
+        >
+          {expanded ? "Show fewer" : `Show ${remaining} more`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function EvidenceChip({ source }: { source: SourceChunk }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-md border border-slate-200/70 bg-white/60">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-1.5 px-2 py-1 text-left hover:bg-slate-50"
+      >
+        <span
+          className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-bold uppercase ${
+            source.kind === "doc"
+              ? "bg-blue-50 text-blue-600"
+              : "bg-amber-50 text-amber-600"
+          }`}
+        >
+          {source.kind}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-700">
+          {source.title}
+        </span>
+        <span className="shrink-0 text-[10px] text-slate-400">
+          {open ? "▲" : "▼"}
+        </span>
+      </button>
+      {open && (
+        <div className="border-t border-slate-100 px-2.5 py-2 bg-slate-50/40">
+          <div className="mb-1.5 truncate text-[10px] font-medium text-blue-500">
+            {source.source}
+          </div>
+          <EvidenceContent source={source} />
         </div>
       )}
     </div>
   );
+}
+
+/** Render evidence content based on the chunk kind / format. */
+function EvidenceContent({ source }: { source: SourceChunk }) {
+  // Seller chunks usually contain Python-dict-style strings. Try parsing first.
+  const parsed = tryParseStructured(source.text);
+  if (parsed && parsed.length > 0) {
+    return (
+      <div className="space-y-2">
+        {parsed.map((item, idx) => (
+          <StructuredItem key={idx} item={item} />
+        ))}
+      </div>
+    );
+  }
+
+  // Document chunks: render as markdown (handles tables-as-pipes, headings, lists).
+  if (source.kind === "doc") {
+    return (
+      <div className="text-[12px] leading-snug text-slate-700">
+        <MarkdownLite text={source.text} />
+      </div>
+    );
+  }
+
+  // Fallback: plain text, monospace, line-clamped.
+  return (
+    <p className="whitespace-pre-wrap text-[11px] leading-snug text-slate-600 line-clamp-8">
+      {source.text}
+    </p>
+  );
+}
+
+/* ─── Structured rendering for Python-dict-style chunks ─── */
+function StructuredItem({ item }: { item: Record<string, any> }) {
+  const entries = Object.entries(item).filter(
+    ([, v]) => v !== null && v !== undefined && v !== ""
+  );
+  return (
+    <div className="rounded border border-slate-200/70 bg-white px-2 py-1.5">
+      <div className="grid grid-cols-[110px,1fr] gap-x-2 gap-y-1">
+        {entries.map(([key, value]) => (
+          <div key={key} className="contents">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 leading-snug pt-0.5">
+              {humanizeKey(key)}
+            </div>
+            <div className="min-w-0 break-words text-[11px] leading-snug text-slate-700">
+              {renderEvidenceValue(value)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function renderEvidenceValue(value: any): React.ReactNode {
+  if (value === null || value === undefined || value === "") return "—";
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "—";
+    if (value.every((v) => typeof v !== "object" || v === null)) {
+      return (
+        <ul className="list-disc pl-3.5 space-y-0.5 marker:text-slate-400">
+          {value.map((v, idx) => (
+            <li key={idx}>{String(v)}</li>
+          ))}
+        </ul>
+      );
+    }
+    return (
+      <div className="space-y-1.5">
+        {value.map((v, idx) => (
+          <StructuredItem key={idx} item={v} />
+        ))}
+      </div>
+    );
+  }
+  if (typeof value === "object") return <StructuredItem item={value} />;
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return String(value);
+}
+
+function humanizeKey(key: string): string {
+  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Try to parse a Python-dict-style string into structured JSON records. */
+function tryParseStructured(
+  text: string
+): Array<Record<string, any>> | null {
+  if (!text || typeof text !== "string") return null;
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("[") && !trimmed.startsWith("{")) return null;
+  if (!/['{}]/.test(trimmed)) return null;
+  const candidate = pythonLiteralToJson(trimmed);
+  try {
+    const parsed = JSON.parse(candidate);
+    if (Array.isArray(parsed)) {
+      const records = parsed.filter(
+        (x) => x && typeof x === "object" && !Array.isArray(x)
+      );
+      return records.length ? records : null;
+    }
+    if (parsed && typeof parsed === "object") return [parsed];
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function pythonLiteralToJson(input: string): string {
+  let out = input
+    .replace(/\bTrue\b/g, "true")
+    .replace(/\bFalse\b/g, "false")
+    .replace(/\bNone\b/g, "null");
+  let result = "";
+  let i = 0;
+  while (i < out.length) {
+    const ch = out[i];
+    if (ch === '"') {
+      result += ch;
+      i++;
+      while (i < out.length) {
+        const c = out[i];
+        result += c;
+        if (c === "\\" && i + 1 < out.length) {
+          result += out[i + 1];
+          i += 2;
+          continue;
+        }
+        i++;
+        if (c === '"') break;
+      }
+      continue;
+    }
+    if (ch === "'") {
+      i++;
+      let buf = "";
+      while (i < out.length) {
+        const c = out[i];
+        if (c === "\\" && i + 1 < out.length) {
+          buf += out[i] + out[i + 1];
+          i += 2;
+          continue;
+        }
+        if (c === "'") {
+          i++;
+          break;
+        }
+        buf += c;
+        i++;
+      }
+      buf = buf.replace(/"/g, '\\"');
+      result += `"${buf}"`;
+      continue;
+    }
+    result += ch;
+    i++;
+  }
+  return result;
 }

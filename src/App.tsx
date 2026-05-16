@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { chat, generateBrief, generatePitch, getHealth, getSeller, searchSellers } from "./api";
-import type { GenerationResponse, HealthResponse, Language, SellerRecord, SellerSummary } from "./types";
+import type { GenerationResponse, HealthResponse, Language, SellerRecord, SellerSummary, SourceChunk } from "./types";
 
 import { TopBar } from "./components/TopBar";
 import { Sidebar } from "./components/Sidebar";
@@ -27,6 +27,7 @@ type ChatTurn = {
   content: string;
   mode?: GenerationResponse["mode"];
   model?: string;
+  sources?: SourceChunk[];
 };
 
 export default function App() {
@@ -190,6 +191,7 @@ export default function App() {
         content: includeLabel ? `## ${label}\n${result.content}` : result.content,
         mode: result.mode,
         model: result.model,
+        sources: result.sources,
       },
     ]);
   }

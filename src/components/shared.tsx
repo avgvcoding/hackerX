@@ -146,7 +146,7 @@ export function TypingIndicator() {
 }
 
 /* ─── Inline markdown (bold, italic, code, links) ─── */
-function renderInline(text: string, keyPrefix = "i"): ReactNode[] {
+export function renderInline(text: string, keyPrefix = "i"): ReactNode[] {
   const out: ReactNode[] = [];
   // Order matters: bold (**...**) > italic (*...*) > code (`...`) > link [t](u)
   const pattern =
@@ -339,7 +339,7 @@ export function MarkdownLite({
 
   return (
     <div
-      className={`markdown-lite text-sm leading-relaxed ${
+      className={`markdown-lite leading-relaxed ${
         compact ? "max-h-[520px] overflow-auto pr-1 scrollbar-thin" : ""
       }`}
     >
