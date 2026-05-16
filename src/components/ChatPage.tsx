@@ -1,4 +1,4 @@
-import { ArrowLeft, Bot, MapPin, AlertTriangle, Activity, IdCard } from "lucide-react";
+import { ArrowLeft, Bot, MapPin, AlertTriangle, Activity, IdCard, Tags } from "lucide-react";
 import { useState } from "react";
 import type { GenerationResponse, SellerRecord, SourceChunk } from "../types";
 import { ChatPanel } from "./ChatPanel";
@@ -28,8 +28,6 @@ export function ChatPage({
   runBrief,
   runPitch,
   loading,
-  salesContext,
-  setSalesContext,
   onBack,
 }: {
   seller: SellerRecord | null;
@@ -40,8 +38,6 @@ export function ChatPage({
   runBrief: () => void;
   runPitch: () => void;
   loading: string | null;
-  salesContext: string;
-  setSalesContext: (v: string) => void;
   onBack: () => void;
 }) {
   return (
@@ -90,8 +86,6 @@ export function ChatPage({
               runBrief={runBrief}
               runPitch={runPitch}
               loading={loading}
-              salesContext={salesContext}
-              setSalesContext={setSalesContext}
               standalone
             />
           </div>
@@ -122,6 +116,7 @@ function SellerInfoSidebar({ seller }: { seller: SellerRecord | null }) {
   const perf = seller.performance_snapshot ?? {};
   const periodData: Record<string, any> = (perf[period] as Record<string, any>) ?? {};
   const painPoints = seller.pain_points ?? [];
+  const categories = seller.categories_bl_last_6_months ?? [];
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-xl border border-line bg-white p-4 shadow-panel scrollbar-thin">
@@ -185,6 +180,47 @@ function SellerInfoSidebar({ seller }: { seller: SellerRecord | null }) {
           <Stat label="Category" value={perf.category_score} />
           <Stat label="Products" value={perf.product_count} />
         </div>
+      </Section>
+
+      {/* Category/Product Signals */}
+      <Section
+        icon={<Tags size={11} className="text-blue-500" />}
+        title="Categories"
+      >
+        {categories.length === 0 ? (
+          <div className="text-[11px] text-slate-400">No category signals.</div>
+        ) : (
+          <ul className="space-y-1.5">
+            {categories.slice(0, 4).map((category, idx) => {
+              const products = [
+                ...(Array.isArray(category.primary_products) ? category.primary_products : []),
+                ...(Array.isArray(category.secondary_products) ? category.secondary_products : []),
+              ].slice(0, 2);
+              return (
+                <li
+                  key={`${category.mcat_name}-${idx}`}
+                  className="rounded-md border border-blue-100 bg-blue-50/50 px-2 py-1.5"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-[11px] font-bold text-blue-800 leading-tight">
+                        {val(category.mcat_name)}
+                      </div>
+                      {products.length > 0 && (
+                        <div className="mt-0.5 truncate text-[10px] leading-snug text-slate-600">
+                          {products.join(", ")}
+                        </div>
+                      )}
+                    </div>
+                    <span className="shrink-0 rounded bg-white px-1.5 py-0.5 text-[9px] font-bold text-blue-600">
+                      {val(category.rank)}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </Section>
 
       {/* Pain Points */}

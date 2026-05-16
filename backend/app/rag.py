@@ -122,10 +122,13 @@ class RAGIndex:
             performance = record.get("performance_snapshot", {})
             history = record.get("sales_service_history", [])
             pain_points = record.get("pain_points", [])
+            categories = record.get("categories_bl_last_6_months", [])
             company = identity.get("company_name", glid)
+            dataset_name = seller_store.dataset_path.name
             seller_sections = {
                 "identity": compact(identity, 1400),
                 "account_status": compact(account, 1400),
+                "categories_products": compact(categories[:8], 2600),
                 "performance": compact(performance, 1600),
                 "history": compact(history[:8], 2400),
                 "pain_points": compact(pain_points, 1800),
@@ -133,8 +136,8 @@ class RAGIndex:
             for name, text in seller_sections.items():
                 chunks.append(
                     RawChunk(
-                        id=f"seller_dataset.json:{glid}.{name}",
-                        source=f"seller_dataset.json:{glid}.{name}",
+                        id=f"{dataset_name}:{glid}.{name}",
+                        source=f"{dataset_name}:{glid}.{name}",
                         title=f"{company} {name.replace('_', ' ')}",
                         text=text,
                         kind="seller",
@@ -200,4 +203,3 @@ def slugify(text: str) -> str:
 
 
 rag_index = RAGIndex()
-

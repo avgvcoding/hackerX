@@ -38,9 +38,6 @@ export default function App() {
   const [selected, setSelected] = useState<SellerRecord | null>(null);
   const [language, setLanguage] = useState<Language>("Hinglish");
   const [objective, setObjective] = useState("Issue resolution");
-  const [salesContext, setSalesContext] = useState(
-    "I want to call the client regarding Buy Lead and export lead issues."
-  );
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("profile");
   const [aiResult, setAiResult] = useState<GenerationResponse | null>(null);
   const [question, setQuestion] = useState("");
@@ -140,7 +137,7 @@ export default function App() {
         selected.glid,
         language,
         objective,
-        salesContext
+        ""
       );
       recordAssistantResult(result, "Sales pitch");
     } catch (err) {
@@ -216,8 +213,6 @@ export default function App() {
           runBrief={runBrief}
           runPitch={runPitch}
           loading={loading}
-          salesContext={salesContext}
-          setSalesContext={setSalesContext}
           onBack={() => navigate("workspace")}
         />
       </main>

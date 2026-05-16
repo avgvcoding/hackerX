@@ -25,10 +25,19 @@ def load_dotenv_file(path: Path = ROOT_DIR / ".env") -> None:
 load_dotenv_file()
 
 
+def default_seller_dataset_path() -> Path:
+    configured = os.getenv("IM_SELLER_DATASET_PATH")
+    if configured:
+        path = Path(configured)
+        return path if path.is_absolute() else ROOT_DIR / path
+    enriched = ROOT_DIR / "enrich_seller_dataset.json"
+    return enriched if enriched.exists() else ROOT_DIR / "seller_dataset.json"
+
+
 @dataclass(frozen=True)
 class Settings:
     root_dir: Path = ROOT_DIR
-    seller_dataset_path: Path = ROOT_DIR / "seller_dataset.json"
+    seller_dataset_path: Path = default_seller_dataset_path()
     docs_dir: Path = ROOT_DIR / "docs"
     llm_gateway_api_key: str | None = os.getenv("IM_LLM_GATEWAY_API_KEY")
     llm_base_url: str = os.getenv("IM_LLM_BASE_URL", "https://imllm.intermesh.net/v1").rstrip("/")

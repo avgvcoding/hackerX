@@ -64,7 +64,10 @@ def rag_search(request: SearchRequest) -> dict:
 @app.post("/api/brief", response_model=GenerationResponse)
 def generate_brief(request: GenerationRequest) -> GenerationResponse:
     seller = require_seller(request.glid)
-    query = f"{request.call_objective} pre-call brief seller pains IndiaMART TrustSEAL Buy Lead PNS category product quality"
+    query = (
+        f"{request.call_objective} pre-call brief seller pains IndiaMART TrustSEAL Buy Lead PNS "
+        f"category product quality MCAT primary products rank service {category_query_terms(seller)}"
+    )
     sources = rag_index.search(query, glid=request.glid, top_k=8)
     mode, model, content, diagnostics = llm_client.complete(
         brief_prompt(seller, sources, request.language, request.call_objective)
@@ -75,7 +78,10 @@ def generate_brief(request: GenerationRequest) -> GenerationResponse:
 @app.post("/api/pitch", response_model=GenerationResponse)
 def generate_pitch(request: GenerationRequest) -> GenerationResponse:
     seller = require_seller(request.glid)
-    query = f"{request.call_objective} pitch objection handling buy lead category product rejection email verification IndiaMART"
+    query = (
+        f"{request.call_objective} pitch objection handling buy lead category product rejection email verification "
+        f"IndiaMART MCAT primary products rank service {category_query_terms(seller)}"
+    )
     sources = rag_index.search(query, glid=request.glid, top_k=8)
     mode, model, content, diagnostics = llm_client.complete(
         pitch_prompt(seller, sources, request.language, request.call_objective, request.salesperson_context)
@@ -87,7 +93,11 @@ def generate_pitch(request: GenerationRequest) -> GenerationResponse:
 def chat(request: ChatRequest) -> GenerationResponse:
     seller = require_seller(request.glid)
     latest = request.messages[-1].content if request.messages else ""
-    sources = rag_index.search(latest or request.call_objective, glid=request.glid, top_k=8)
+    query = (
+        f"{latest or request.call_objective} {request.call_objective} seller categories products MCAT "
+        f"primary products rank service {category_query_terms(seller)}"
+    )
+    sources = rag_index.search(query, glid=request.glid, top_k=8)
     mode, model, content, diagnostics = llm_client.complete(
         chat_prompt(
             seller,
@@ -110,6 +120,7 @@ def require_seller(glid: str) -> dict:
 def summary(record: dict) -> dict:
     identity = record.get("seller_identity", {})
     performance = record.get("performance_snapshot", {})
+    categories = record.get("categories_bl_last_6_months", [])
     return {
         "glid": record.get("glid"),
         "record_type": record.get("record_type"),
@@ -121,4 +132,15 @@ def summary(record: dict) -> dict:
         "business_type": identity.get("business_type"),
         "product_count": performance.get("product_count"),
         "category_score": performance.get("category_score"),
+        "top_categories": [category.get("mcat_name") for category in categories[:3] if category.get("mcat_name")],
     }
+
+
+def category_query_terms(seller: dict) -> str:
+    terms: list[str] = []
+    for category in seller.get("categories_bl_last_6_months", [])[:5]:
+        terms.append(str(category.get("mcat_name") or ""))
+        terms.extend(str(item or "") for item in category.get("primary_products", [])[:2])
+        terms.extend(str(item or "") for item in category.get("secondary_products", [])[:2])
+        terms.append(str(category.get("service") or ""))
+    return " ".join(term for term in terms if term)

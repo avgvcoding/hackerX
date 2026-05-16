@@ -11,6 +11,7 @@ export interface SellerSummary {
   business_type: string;
   product_count: number;
   category_score: string;
+  top_categories?: string[];
 }
 
 export interface SourceChunk {
@@ -30,6 +31,7 @@ export interface SellerRecord {
   seller_identity: Record<string, any>;
   account_status: Record<string, any>;
   contact_context: Record<string, any>;
+  categories_bl_last_6_months?: Array<Record<string, any>>;
   performance_snapshot: Record<string, any>;
   sales_service_history: Array<Record<string, any>>;
   pain_points: Array<Record<string, any>>;

@@ -190,6 +190,26 @@ export function renderInline(text: string, keyPrefix = "i"): ReactNode[] {
   return out;
 }
 
+/* ─── Markdown-table helpers ─── */
+function isTableRow(line: string): boolean {
+  const t = line.trim();
+  // Must contain at least one pipe AND have non-pipe content. Reject the
+  // separator pattern (handled by isTableSeparator).
+  if (!t.includes("|")) return false;
+  if (/^\|?\s*[-:]+\s*(\|\s*[-:]+\s*)+\|?\s*$/.test(t)) return false;
+  // A real row should have at least one pipe separating cells.
+  return /\|/.test(t);
+}
+
+function isTableSeparator(line: string): boolean {
+  return /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/.test(line);
+}
+
+function splitTableRow(line: string): string[] {
+  const stripped = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  return stripped.split("|").map((c) => c.trim());
+}
+
 /* ─── MarkdownLite ─── */
 export function MarkdownLite({
   text,
@@ -233,8 +253,8 @@ export function MarkdownLite({
   let inCode = false;
   let codeBuf: string[] = [];
 
-  lines.forEach((rawLine, index) => {
-    const line = rawLine;
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
 
     // Fenced code blocks
     if (/^```/.test(line.trim())) {
@@ -253,45 +273,102 @@ export function MarkdownLite({
         flushList(`${index}`);
         inCode = true;
       }
-      return;
+      continue;
     }
     if (inCode) {
       codeBuf.push(line);
-      return;
+      continue;
+    }
+
+    // Markdown table:  | h1 | h2 |    followed by    |---|---|
+    if (isTableRow(line) && index + 1 < lines.length && isTableSeparator(lines[index + 1])) {
+      flushList(`${index}`);
+      const header = splitTableRow(line);
+      const bodyRows: string[][] = [];
+      let j = index + 2;
+      while (j < lines.length && isTableRow(lines[j])) {
+        bodyRows.push(splitTableRow(lines[j]));
+        j++;
+      }
+      blocks.push(
+        <div key={`tbl-${index}`} className="my-2 overflow-x-auto rounded-md border border-slate-200">
+          <table className="w-full border-collapse text-[12px]">
+            <thead className="bg-slate-100">
+              <tr>
+                {header.map((h, i) => (
+                  <th
+                    key={i}
+                    className="border-b border-slate-200 px-2 py-1.5 text-left font-bold text-slate-700"
+                  >
+                    {renderInline(h, `th-${index}-${i}`)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {bodyRows.map((row, ri) => (
+                <tr key={ri} className="even:bg-slate-50/50">
+                  {row.map((cell, ci) => (
+                    <td
+                      key={ci}
+                      className="border-t border-slate-100 px-2 py-1.5 align-top text-slate-700"
+                    >
+                      {renderInline(cell, `td-${index}-${ri}-${ci}`)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      index = j - 1; // skip past consumed rows (for-loop increments to j)
+      continue;
     }
 
     // Headings
-    const h3 = /^###\s+(.+)$/.exec(line);
-    const h2 = /^##\s+(.+)$/.exec(line);
-    const h1 = /^#\s+(.+)$/.exec(line);
-    if (h1 || h2 || h3) {
+    const heading = /^(#{1,6})\s+(.+)$/.exec(line);
+    if (heading) {
       flushList(`${index}`);
-      if (h1) {
+      const level = heading[1].length;
+      const content = heading[2];
+      if (level === 1) {
         blocks.push(
           <h2 key={index} className="text-base font-bold mt-2 mb-1">
-            {renderInline(h1[1], `h1-${index}`)}
+            {renderInline(content, `h1-${index}`)}
           </h2>
         );
-      } else if (h2) {
-        blocks.push(<h2 key={index}>{renderInline(h2[1], `h2-${index}`)}</h2>);
-      } else if (h3) {
+      } else if (level === 2) {
+        blocks.push(
+          <h2 key={index}>{renderInline(content, `h2-${index}`)}</h2>
+        );
+      } else if (level === 3) {
         blocks.push(
           <h3
             key={index}
             className="text-[13px] font-bold mt-2 mb-0.5 text-slate-700"
           >
-            {renderInline(h3[1], `h3-${index}`)}
+            {renderInline(content, `h3-${index}`)}
           </h3>
         );
+      } else {
+        blocks.push(
+          <h4
+            key={index}
+            className="text-[13px] font-semibold mt-2 mb-0.5 text-slate-700"
+          >
+            {renderInline(content, `h${level}-${index}`)}
+          </h4>
+        );
       }
-      return;
+      continue;
     }
 
     // Horizontal rule
     if (/^---+\s*$/.test(line)) {
       flushList(`${index}`);
       blocks.push(<hr key={index} className="my-2 border-slate-200" />);
-      return;
+      continue;
     }
 
     // Bullet list
@@ -299,7 +376,7 @@ export function MarkdownLite({
     if (bullet) {
       const depth = Math.floor(bullet[1].length / 2);
       listBuf.push({ ordered: false, depth, content: bullet[2] });
-      return;
+      continue;
     }
 
     // Numbered list
@@ -307,7 +384,7 @@ export function MarkdownLite({
     if (numbered) {
       const depth = Math.floor(numbered[1].length / 2);
       listBuf.push({ ordered: true, depth, content: numbered[2] });
-      return;
+      continue;
     }
 
     flushList(`${index}`);
@@ -315,7 +392,7 @@ export function MarkdownLite({
     // Blank line
     if (line.trim() === "") {
       blocks.push(<div key={index} className="h-2" />);
-      return;
+      continue;
     }
 
     // Paragraph
@@ -324,7 +401,7 @@ export function MarkdownLite({
         {renderInline(line, `p-${index}`)}
       </p>
     );
-  });
+  }
   flushList("end");
   if (inCode && codeBuf.length) {
     blocks.push(

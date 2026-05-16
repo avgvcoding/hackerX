@@ -32,6 +32,9 @@ pnpm-debug.log*
 # Local artifacts
 tmp/
 tmp-*.png
+*.mp4
+*.mov
+*.webm
 
 # Editor / OS files
 .DS_Store

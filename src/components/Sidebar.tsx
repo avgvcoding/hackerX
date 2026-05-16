@@ -60,6 +60,18 @@ export function Sidebar({
                     {item.product_count} products
                   </span>
                 </div>
+                {(item.top_categories?.length ?? 0) > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {item.top_categories!.slice(0, 2).map((category) => (
+                      <span
+                        key={category}
+                        className="max-w-full truncate rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-blue-300/90"
+                      >
+                        {category}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </button>
           );

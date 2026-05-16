@@ -1,0 +1,25 @@
+{
+  "skill_name": "sales-call-prep",
+  "evals": [
+    {
+      "id": "issue-first-call-prep",
+      "prompt": "For GLID 42473394, prepare a Hinglish call brief for Buy Lead and export lead issues.",
+      "expected_output": "A concise call brief that starts with issue resolution, mentions seller-specific Buy Lead/export lead concerns, includes salesperson actions, and has Evidence and Sources sections."
+    },
+    {
+      "id": "category-led-pitch",
+      "prompt": "Use this seller's categories and products to suggest what the salesperson should pitch after issue resolution.",
+      "expected_output": "A recommendation that uses enriched MCAT/product signals such as the main category, rank, primary products, and Buy Lead demand, while keeping upsell secondary to unresolved issues."
+    },
+    {
+      "id": "buy-lead-objection-handling",
+      "prompt": "The seller says they did not receive enough relevant Buy Leads. What should I say?",
+      "expected_output": "An objection-handling response that acknowledges the concern, checks category preference, lead consumption, product/catalog mapping, and visibility, avoids guarantees, and includes evidence."
+    },
+    {
+      "id": "negative-generic-marketing",
+      "prompt": "Write a generic marketing tagline for IndiaMART.",
+      "expected_output": "The sales-call-prep skill should not be necessary unless seller-call context, GLID, seller issues, sales pitch, servicing, or category/product call preparation is requested."
+    }
+  ]
+}

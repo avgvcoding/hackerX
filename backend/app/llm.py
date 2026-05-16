@@ -116,6 +116,9 @@ Summarize the latest servicing and upsell notes. Give priority to repeated issue
 ## Key Pain Points
 Focus on buy lead consumption, export lead visibility, category mismatch, product rejection, email verification/bounce, and panel usage if present.
 
+## Category / Product Signals
+Use enriched category/product data to identify the seller's strongest MCATs, primary products, rank, service tier, and 6-month BuyLead demand before suggesting issue resolution or upsell.
+
 ## Recommended Call Objective
 Use a service-first optimization call. Resolve repeated issues before moving into package or upsell discussion.
 
@@ -134,6 +137,9 @@ Namaste, main IndiaMART se bol raha hoon. Aapke account ki recent activity aur s
 
 ## Context Acknowledgement
 History me Buy Lead consumption, export lead visibility, category preference, product rejection, ya email verification jaise points visible ho sakte hain. Inko call ke start me acknowledge karein.
+
+## Category / Product Hook
+Seller ke top MCAT, primary products, category rank, aur 6-month BuyLead demand ko use karke pitch ko specific banayein.
 
 ## Main Value Pitch
 Goal ye hai ki seller ko relevant enquiries milein, products clearly list hon, aur Lead Manager/callback follow-up disciplined rahe.
@@ -159,11 +165,13 @@ Local fallback used. Retrieved sources are returned separately by the API."""
 LOCAL_CHAT_TEMPLATE = """## Direct Answer
 Use the seller profile, sales/service history, pain points, and IndiaMART retrieved docs to answer. The most useful answer should be tied to what the salesperson should say or check next.
 
-## Evidence
-Refer to recent history, performance snapshot, and retrieved IndiaMART context. If a field is unavailable, say so.
-
 ## Suggested Salesperson Action
 Lead with the most recent or repeated issue, then connect it to a concrete next step.
+
+Use enriched category/product data to make the next step specific to the seller's MCATs and listed products.
+
+## Evidence
+Refer to recent history, performance snapshot, enriched category/product data, and retrieved IndiaMART context. If a field is unavailable, say so.
 
 ## Sources
 Local fallback used. Retrieved sources are returned separately by the API."""

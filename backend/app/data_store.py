@@ -31,6 +31,19 @@ class SellerStore:
         scored: list[tuple[int, dict[str, Any]]] = []
         for record in self.records:
             identity = record.get("seller_identity", {})
+            categories = record.get("categories_bl_last_6_months", [])
+            category_terms: list[str] = []
+            for category in categories[:8]:
+                category_terms.extend(
+                    str(x or "")
+                    for x in [
+                        category.get("mcat_name"),
+                        category.get("rank"),
+                        category.get("service"),
+                    ]
+                )
+                category_terms.extend(str(x or "") for x in category.get("primary_products", [])[:3])
+                category_terms.extend(str(x or "") for x in category.get("secondary_products", [])[:3])
             haystack = " ".join(
                 str(x or "")
                 for x in [
@@ -41,6 +54,7 @@ class SellerStore:
                     identity.get("state"),
                     identity.get("customer_type"),
                     identity.get("business_type"),
+                    *category_terms,
                 ]
             ).lower()
             if q in haystack:
@@ -51,4 +65,3 @@ class SellerStore:
 
 
 seller_store = SellerStore()
-

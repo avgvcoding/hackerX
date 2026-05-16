@@ -11,6 +11,7 @@ Use seller data first, IndiaMART documents second, and general reasoning only wh
 Never reveal or invent unmasked phone numbers or emails. Keep masked values masked.
 If data is missing or inaccessible, say so directly.
 Prefer recent and repeated pain points.
+Use `categories_bl_last_6_months` before generic category or product assumptions. For issue resolution and upsell, anchor recommendations to MCAT/category name, primary/secondary products, category rank, product count, 6-month BuyLead demand, and current service tier when present.
 Every brief, pitch, and answer must cite evidence from seller history, performance, or IndiaMART docs.
 For Hinglish, write Hindi words in English alphabets and keep business terms such as Buy Lead, Lead Manager, TrustSEAL, Category, Callback, Package.
 For Hindi, keep IndiaMART business terms readable and do not translate product names awkwardly."""
@@ -23,6 +24,7 @@ def context_block(seller: dict[str, Any], sources: list[SourceChunk]) -> str:
         "seller_identity": seller.get("seller_identity"),
         "account_status": seller.get("account_status"),
         "contact_context": seller.get("contact_context"),
+        "categories_bl_last_6_months": seller.get("categories_bl_last_6_months", [])[:8],
         "performance_snapshot": seller.get("performance_snapshot"),
         "sales_service_history": seller.get("sales_service_history", [])[:8],
         "pain_points": seller.get("pain_points"),
@@ -48,6 +50,7 @@ Use this exact structure:
 ## Client Snapshot
 ## Account Health
 ## Recent History
+## Category / Product Signals
 ## Key Pain Points
 ## Recommended Call Objective
 ## Suggested Opening
@@ -80,6 +83,7 @@ Salesperson context: {extra}
 Use this exact structure:
 ## Opening
 ## Context Acknowledgement
+## Category / Product Hook
 ## Main Value Pitch
 ## Issue-Resolution Angle
 ## Likely Objections And Responses
@@ -112,9 +116,8 @@ Conversation:
 
 Answer the latest user question using:
 ## Direct Answer
-## Evidence
 ## Suggested Salesperson Action
+## Evidence
 ## Sources""",
         },
     ]
-

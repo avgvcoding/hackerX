@@ -1,4 +1,4 @@
-import { UserRound, ShieldCheck, PhoneCall, SlidersHorizontal } from "lucide-react";
+import { UserRound, ShieldCheck, PhoneCall, SlidersHorizontal, Tags } from "lucide-react";
 import type { SellerRecord } from "../types";
 import { Panel, DetailGrid, val } from "./shared";
 
@@ -7,6 +7,7 @@ export function SellerDetails({ seller }: { seller: SellerRecord }) {
   const account = seller.account_status ?? {};
   const contact = seller.contact_context ?? {};
   const notes = seller.model_usage_notes ?? {};
+  const categories = seller.categories_bl_last_6_months ?? [];
 
   return (
     <div className="grid gap-4 lg:grid-cols-2 animate-fade-in-up">
@@ -58,6 +59,21 @@ export function SellerDetails({ seller }: { seller: SellerRecord }) {
         />
       </Panel>
 
+      {/* Category / Product Signals */}
+      <Panel title="Category / Product Signals" icon={<Tags size={16} />}>
+        {categories.length === 0 ? (
+          <div className="text-xs font-medium text-muted">
+            No enriched category data available.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {categories.slice(0, 5).map((category, idx) => (
+              <CategorySignal key={`${category.mcat_name}-${idx}`} category={category} />
+            ))}
+          </div>
+        )}
+      </Panel>
+
       {/* AI Usage Notes */}
       <Panel title="AI Usage Notes" icon={<SlidersHorizontal size={16} />}>
         <div className="space-y-3">
@@ -90,6 +106,50 @@ export function SellerDetails({ seller }: { seller: SellerRecord }) {
           </div>
         </div>
       </Panel>
+    </div>
+  );
+}
+
+function CategorySignal({ category }: { category: Record<string, any> }) {
+  const products = [
+    ...(Array.isArray(category.primary_products) ? category.primary_products : []),
+    ...(Array.isArray(category.secondary_products) ? category.secondary_products : []),
+  ].slice(0, 4);
+
+  return (
+    <div className="rounded-lg border border-blue-100 bg-blue-50/40 px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs font-extrabold text-ink">
+          {val(category.mcat_name)}
+        </span>
+        {category.rank && (
+          <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-blue-600">
+            Rank {category.rank}
+          </span>
+        )}
+        {category.service && (
+          <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+            {category.service}
+          </span>
+        )}
+      </div>
+      {products.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {products.map((product: string) => (
+            <span
+              key={product}
+              className="rounded-md bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600"
+            >
+              {product}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="mt-1.5 grid grid-cols-3 gap-1.5 text-[10px] font-semibold text-slate-500">
+        <span>Products: {val(category.no_of_products)}</span>
+        <span>Total BL: {val(category.pur_bl_t_last_6m)}</span>
+        <span>Paid BL: {val(category.pur_bl_p_last_6m)}</span>
+      </div>
     </div>
   );
 }
